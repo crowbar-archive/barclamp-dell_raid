@@ -1,0 +1,25 @@
+# Copyright 2011, Dell, Inc.
+#
+# Licensed to Dell
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+
+barclamp:
+  name: dell_raid
+  display: RAID
+  version: 0
+  member:
+    - dell_branding
+
+crowbar:
+  layout: 2
+  order: 18
+  run_order: 18
+  chef_order: 18
+

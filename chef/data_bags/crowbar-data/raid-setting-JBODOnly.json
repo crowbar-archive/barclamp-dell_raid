@@ -1,0 +1,6 @@
+{
+  "id" : "raid-JBODOnly",
+  "config" : { 
+  "default":   {"raid_level": "JBOD", "disks": "remaining", "order" : 3 }
+  }
+}

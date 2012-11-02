@@ -1,0 +1,30 @@
+{
+  "id": "bc-template-dell_raid",
+  "description": "The default proposal for the raid barclamp",
+  "attributes": {
+    "raid": {
+	  "enable": true,
+	  "debug": false
+	 }
+  },
+  "deployment": {
+    "dell_raid": {
+      "crowbar-revision": 0,
+      "elements": {},
+      "element_states": {
+        "raid-configure": [ "hardware-installing" ]
+      },
+      "element_order": [
+        [ "raid-configure"  ]
+      ],
+      "config": {
+        "environment": "raid-base-config",
+        "mode": "full",
+        "transitions": true,
+        "transition_list": [
+          "discovering", "discovered"
+	]
+      }
+    }
+  }
+}

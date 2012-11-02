@@ -1,0 +1,6 @@
+{
+  "id" : "raid-SingleRaid1",
+  "config" : { 
+  "0" : {"raid_level": "RAID1" , "disks": "remaining", "order": 1 }  
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "type": "map",
+  "required": true,
+  "mapping": {
+    "id": { "type": "str", "required": true },
+    "config": { "type": "map", "required": true , 
+    	"mapping": {
+    	   = : { "type": "map", "required": true,
+    		 "mapping": {
+    			"raid_level" : {"type" : "str", "required": true, "pattern": "/(RAID0)|(RAID1)|(RAID10)|(RAID1E)|(JBOD)/" },
+    			"disks" : { "type" : "str" , "required" : true, "pattern": "/\d+|remaining/" },
+    			"order" : { "type" : "int" , "required" : true }
+    		  }
+    	  }
+        }
+     }
+  }
+}
