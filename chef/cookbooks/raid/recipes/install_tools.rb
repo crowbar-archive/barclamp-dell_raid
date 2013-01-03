@@ -18,13 +18,14 @@
 include_recipe "utils"
 
 return unless ["centos","redhat"].member?(node[:platform]) && !@@is_admin
-
+provisioner_server = (node[:crowbar_wall][:provisioner_server] rescue nil)
+return unless provisioner_server
 sas2ircu="SAS2IRCU_P12.zip"
 megacli="8.05.06_MegaCLI.zip"
 
 [sas2ircu,megacli].each do |f|
   remote_file "/tmp/#{f}" do
-    source "#{@@provisioner_server}/files/dell_raid/tools/#{f}"
+    source "#{provisioner_server}/files/dell_raid/tools/#{f}"
     action :create_if_missing
   end
 end
