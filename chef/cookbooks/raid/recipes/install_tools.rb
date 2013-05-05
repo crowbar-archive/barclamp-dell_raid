@@ -20,8 +20,8 @@ include_recipe "utils"
 return unless ["centos","redhat"].member?(node[:platform]) && !@@is_admin
 provisioner_server = (node[:crowbar_wall][:provisioner_server] rescue nil)
 return unless provisioner_server
-sas2ircu="SAS2IRCU_P12.zip"
-megacli="8.05.06_MegaCLI.zip"
+sas2ircu="SAS2IRCU_P16.zip"
+megacli="8.07.07_MegaCLI.zip"
 
 [sas2ircu,megacli].each do |f|
   remote_file "/tmp/#{f}" do
@@ -34,7 +34,7 @@ bash "install sas2ircu" do
   code <<EOC
 cd /usr/sbin
 [[ -x /usr/sbin/sas2ircu ]] || \
-unzip -j "/tmp/#{sas2ircu}" "SAS2IRCU_P12/sas2ircu_linux_x86_rel/sas2ircu"
+unzip -j "/tmp/#{sas2ircu}" "SAS2IRCU_P16/sas2ircu_linux_x86_rel/sas2ircu"
 EOC
 end
 
@@ -42,7 +42,7 @@ bash "install megacli" do
   code <<EOC
 cd /tmp
 [[ -x /opt/MegaRAID/MegaCli/MegaCli64 ]] && exit 0
-for pkg in "MegaCliKL_Linux/Lib_Utils-1.00-09.noarch.rpm" "MegaCli_Linux/MegaCli-8.05.06-1.noarch.rpm"; do
+for pkg in "MegaCli_Linux/MegaCli-8.07.07-1.noarch.rpm"; do
     unzip -j "#{megacli}" "$pkg"
   rpm -Uvh "${pkg##*/}"
 done

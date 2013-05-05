@@ -41,5 +41,7 @@ attribute :config
 attribute :debug_flag 
 ## where to log problems encountered - string
 attribute :problem_file
+## Boot parameter that indicates if nic should be first
+attribute :nic_first
 
 

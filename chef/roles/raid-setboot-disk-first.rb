@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 Dell Inc.
+# Copyright (c) 2012 Dell Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
 # limitations under the License.
 #
 
-name "discover-raid"
-description "Discover RAID -publish information about the physical drives in the machine"
+name "raid-setboot-disk-first"
+description "RAID set boot - set PXE boot always"
+default_attributes "raid" => { "nic_first" => false }
 run_list(
-  "recipe[raid::install_tools]"
+  "recipe[raid::raid-setboot]"
 )

@@ -4,4 +4,7 @@
 #
 
 class DellRaidController < BarclampController
+ def initialize
+    @service_object = RaidService.new logger
+  end
 end

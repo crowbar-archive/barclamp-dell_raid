@@ -15,32 +15,28 @@
 #
 
 
-##
-# this recipe performs substantially the same activites as the raid-configure, short
-# of actually attempting to configure the RAID controller.
-# rather, it reports information about the current configuration and the physical
-# capabilities of the storage system.
-
 include_recipe "utils"
 
-raid_enable = node[:raid][:enable] & @@centos
-log("BEGIN raid-report enabled=#{raid_enable}") {level :info} 
+raid_enable = node[:raid][:enable] & @@centos & !@@is_admin 
+log("BEGIN raid-setboot enabled=#{raid_enable}") {level :info} 
 
 config_name = node[:crowbar][:hardware][:raid_set] rescue config_name = "JBODOnly"
 config_name ="raid-#{config_name}"
 config_bag = data_bag("crowbar-data")
 config = data_bag_item("crowbar-data",config_name) if config_bag.include?(config_name)
-log("Using config: #{config_name}")
+log("Using config: #{config_name}, config is: #{config.inspect}")
+
 begin 
-  ## push the MegaCLI packages, and insall them
+  ## push the MegaCLI packages, and install them  
   include_recipe "raid::install_tools"
-  
-  raid_raid_config "lsi-raid-report" do
-    config config["config"]
+
+  raid_raid_config "lsi-raid-boot" do
+    config config["config"] 
     debug_flag   node[:raid][:debug]  
-    action [ :report ]
-    problem_file "/var/log/chef/hw-problem.log"
+    nic_first node[:raid][:nic_first]
+    action [ :set_boot ] 
+    problem_file "/var/log/chef/hw-problem.log" 
   end
   node.save
 end if raid_enable and !config.nil? and !config.empty?
-log("END raid-report") {level :info} 
+log("END raid-setboot") {level :info} 

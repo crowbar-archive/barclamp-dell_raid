@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011 Dell Inc.
+# Copyright (c) 2012 Dell Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,12 +27,13 @@ config = data_bag_item("crowbar-data",config_name) if config_bag.include?(config
 log("Using config: #{config_name}, config is: #{config.inspect}")
 
 begin 
-  ## push the MegaCLI packages, and insall them  
+  ## push the MegaCLI packages, and install them  
   include_recipe "raid::install_tools"
 
   raid_raid_config "lsi-raid-config" do
     config config["config"] 
-    debug_flag   node[:raid][:debug]  
+    debug_flag node[:raid][:debug]  
+    nic_first true
     action [ :report, :apply, :set_boot ] 
     problem_file "/var/log/chef/hw-problem.log" 
   end

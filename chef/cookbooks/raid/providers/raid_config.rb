@@ -1,10 +1,10 @@
 #
-# Copyright 2011, Dell
+# Copyright 2012, Dell
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
 # 
 # Unless required by applicable law or agreed to in writing, software
@@ -13,384 +13,50 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Author: andi abes
+
+# Sample config block: can be found in the data_bags/crowbar-data dir
+
 #
-
-=begin
-
-Sample config block:
-
-{ 
-  "vol-raid1" => {:raid_level => :RAID1}, ## must use exactly 2 disks
-  "vol-raid0" => {:raid_level => :RAID0, :disks => 3 },
-  "default" =>  {:raid_level => :JBOD , :disks => :remaining}
-}
-
-=end
-
-
-def load_current_resource
-  log "load_current_resource start..............................."
-  find_controller
-  if @raid.nil?
-    @failed = true
-    return 
-  end
-  @raid.debug = @new_resource.debug_flag  
-  @raid.load_info    
-  log "load_current_resource end............................"
-end
-
+# Actions from resource
+#
 action :report do  
-  do_report()
-end
-
-def do_report
-  begin
-    @raid.load_info
-    s = "\n"
-    s << "Current RAID configuraiton report:\n"
-    s << " disks #{@raid.disks.length}: #{@raid.describe_disks}\n"
-    s << " volumes: #{@raid.describe_volumes}\n"
-    log s
-    
-    # "publish" the disk/volume info into the node.
-    node["crowbar"]["hardware"] = {} if node["crowbar"]["hardware"].nil?
-    ## null out what's there now.
-    node["crowbar"]["hardware"]["disks"] = []
-    node["crowbar"]["hardware"]["volumes"] = []
-    @raid.disks.each { |x| node["crowbar"]["hardware"]["disks"] << x.to_hash } unless @raid.disks.nil?
-    @raid.volumes.each { |x| node["crowbar"]["hardware"]["volumes"] << x.to_hash } unless @raid.volumes.nil? 
-    node.save    
-  end unless @failed
-  rescue 
-    report_problem($!)  ## $! is the global exception variable
-end
-
-
-action :set_boot do
-  do_set_boot()
-end
-
-def do_set_boot
-  returnVal = @raid.set_boot unless @failed
-  log("do_set_boot returnVal: #{returnVal}")
-  if (@raid.respond_to?(:create_bios_config_job) && returnVal == '0') # wsman specific case
-    returnVal = @raid.create_bios_config_job();
-    if(returnVal == '4096')
-      sleep() #go to sleep whilst we reboot
-    end
-  end
-rescue 
-  report_problem($!)  ## $! is the global exception variable
+  # Implicitly handled by load_current_resource
 end
 
 action :apply do
-  apply_config unless @failed
-end
-
- def find_controller
-  drivers = [Crowbar::RAID::WsManCli,Crowbar::RAID::LSI_MegaCli,Crowbar::RAID::LSI_sasIrcu]
-  log("will try: #{drivers.inspect}")
-  drivers.each { |c|
-     log("trying #{c}") {level :debug}
-     ## try to instanciate and test the controller class, but catch errors.
-     begin
-       @raid = c.new(node)
-       test = @raid.find_controller
-       if !test.nil?
-         log("using #{c}") {level :debug}
-         break
-       end
-     rescue => detail
-       log("failed to test #{c}, error: #{detail}")
-     end
-     @raid = nil # nil out if it didn't take
-  }
-  log("no suported RAID controller found on this system"){level :error} if @raid.nil?
-  log(@raid.describe) unless @raid.nil? 
-end
-
-
-
-
-def apply_config  
-  returnVal='0';
   config = @new_resource.config
-  errors = validate_config(config)
-  
-  if errors.length > 0
-    log("Config Errors:#{errors}")
-    throw "Config error #{errors}"
-  end
-  
-  ##
-  # compute delta:  
-  #  in:
-  #   - @raid.volumes = currently present volumes
-  #   - config - desired volumes
-  # out:
-  #    - missing = volumes we're missing
-  #    - keep = volumes we have and we want to keep.
-  #    - cur_dup - the volumes we have but don't want   
-  keep_vols = []
-  missing = []
-  cur_dup = (@raid.volumes.nil? )? {}: @raid.volumes.dup  
-  log_("CONFIG INSPECT #{config.inspect}\n\n\n")
-  config.each {|name,cfg |  
-    next if name.intern == :default  ## skip checking for default...    
-    cfg[:vol_name] = name    
-    have = cur_dup.select{ |have|
-      (have.vol_name and (have.vol_name.kind_of? String) and (have.vol_name.casecmp(name) == 0))
-    }
-    if have.length == 0
-      missing << cfg 
-      log_("will create #{name}")             
-    else       
-      have_1 = have[0]
-      log_("have #{name} #{have_1.raid_level} disks: #{have_1.members.length}") 
-      # check config matches, before deciding to keep
-      recreate = true
-      begin
-        if @raid.disks.length < 4 and have_1.raid_level == :RAID1 and cfg[:raid_level].intern == :RAID10
-          log_("Downgraded Raid10, Keep it")
-          recreate = false
-          keep_vols << cur_dup.delete(have_1)
-          break
-        end
-        log_("wrong raidlevel#{have_1.raid_level}: #{cfg[:raid_level]}") and break unless have_1.raid_level == cfg[:raid_level].intern
-        disk_cnt = Float(cfg[:disks]) rescue 0
-        log_("wrong disk count") and break if disk_cnt >0 and have_1.members.length != disk_cnt
-        recreate = false
-        keep_vols << cur_dup.delete(have_1)
-      end while false
-      if (recreate)
-        log_("will recreate #{name}")
-        missing << cfg
-      else 
-        log_("keeping it")
-      end
-    end
-  }
-  
-  ## adjust for how jbod is implemented
-  @raid.adjust_config(config,cur_dup, missing, keep_vols)
-  
-  log_("keeping: #{keep_vols.map{|km| km.vol_name}.join(' ')}")  
-  log_("missing: #{missing.map{|mm| mm[:vol_name]}.join(' ')}")
-  log_("extra: #{cur_dup.map{|dm| dm.vol_name}.join(' ')}")
-  
-  # see if we have something to do.
-  #log_("nothing to be done") and return if missing.length ==0 and cur_dup.length==0
-  
-  # remove extra
-  if !cur_dup.nil? && cur_dup.length !=0
-    cur_dup.each {|e| 
-      log_("deleting #{e.vol_id}")
-      returnVal = @raid.delete_volume(e.vol_id) 
-    }
-    if (@raid.respond_to?(:create_raid_config_job) && returnVal=='0') # wsman specific case
-      returnVal = @raid.create_raid_config_job();
-      if(returnVal == '4096')
-        sleep() #go to sleep whilst we reboot
-      end
-    end
-  end
-  
-  # figure out what disks we have avail - those not used in volumes we're keeping
-  disks_used = keep_vols.map { |v| 
-    v.members.map{ |d| "#{d.enclosure}:#{d.slot}"}    
-  }
-  disks_used.flatten!
-  disk_avail = @raid.disks.dup
-  disk_avail.delete_if { |d| disks_used.include?("#{d.enclosure}:#{d.slot}") }
-  log_("available disks (#{disk_avail.length}): #{disk_avail.join(',')}")
-  
-  # allocate disks, and make a list of volumes to create
-  missing.sort! { | a,b | a[:order] <=> b[:order] } # sort by order  
-  log_(" ordered missing vols: #{missing.map{|m| m[:vol_name]}.join(' ')}")
-  missing.each { |m| 
-    disk_2_use = []
-    disk_cnt = 0
-    if m[:disks].nil? or m[:disks] == :remaining
-      # use all the disks
-      log_("using remaining disks: #{disk_avail.length}")
-      disk_cnt = disk_avail.length
-    else
-      disk_cnt = Integer(m[:disks])
-      log_("using specified disk count: #{disk_cnt}")
-    end    
-    adj_disk_cnt = adjust_max_disk_cnt(m,disk_cnt)
-    log_("orig/adj disk count #{disk_cnt}/#{adj_disk_cnt}")
-    
-    disk_cnt = adj_disk_cnt
-     (1..disk_cnt).each {
-      next_disk = disk_avail.shift
-      throw "out of disks" if next_disk.nil?
-      disk_2_use << next_disk 
-    }
-    
-    # if total volume size is too big, force it down (Current BIOS cannot handle >2 TB disks)    
-    disk_size = @raid.disks[0].size
-    total_size = disk_size * disk_2_use.length
-    case m[:raid_level].intern
-      when :RAID0
-         total_size = total_size   # striped - no change 
-      when :RAID1
-         total_size = total_size / 2 # mirror - 1/2
-      when :RAID5
-         total_size = disk_size * (disk_2_use.length -1 ) # dedicate 1 drive
-      when :RAID10
-         total_size = total_size / 2 # striped mirrors - 1/2
-      
-    else
-      raise "unknown raid level #{m[:raid_level]}"
-    end
-    
-    
-    max_size = (Crowbar::RAID::TERA * 2 - Crowbar::RAID::MEGA) 
-    max_size = nil if total_size < max_size    
-    # remove extra
-    if !disk_2_use.nil? && disk_2_use.length !=0
-      log_("Creating vol #{m[:vol_name]} with #{disk_2_use.length} total/max size: #{total_size}/#{max_size} disks: #{disk_2_use.join(' ')}*********************************************************** ")
-      returnVal = @raid.create_volume(m[:raid_level], m[:vol_name], disk_2_use, max_size)
-      if (@raid.respond_to?(:create_raid_config_job) && returnVal=='0') # wsman specific case 
-        returnVal = @raid.create_raid_config_job();
-        if(returnVal =='4096')
-          sleep() #go to sleep whilst we reboot
-        end
-      end
-    end
-  }
-  returnVal = @raid.apply_default(config, disk_avail)
-  if (@raid.respond_to?(:create_raid_config_job) && returnVal=='0') # wsman specific case 
-    returnVal = @raid.create_raid_config_job();
-    if(returnVal =='4096')
-      sleep() #go to sleep whilst we reboot
-    end
-  end
-  log_("unused disks #{disk_avail.join(' ')}")
-rescue 
-  report_problem($!)  ## $! is the global exception variable
+  apply_config(config, @controllers) unless @failed
 end
 
-
-
-=begin
- The following rules need to be checked:  
-   - For a type 'RAID1' volume min 2 disks must be specified. will truncate down to two
-   - For a type 'RAID1E' volume min of 3 disks must be specified.
-   - For a type 'RAID0' volume min of 2 disks must be specified.
-   - For a type 'RAID10' volume min of 4 disks must be specified.
-Additionally:
-- No set has more than 10 disk
-- Raid1E only works with an odd number of disks (so up to 9 total disks, since 10 is not odd)
-- No more than 2 raid volumes are specified.
-- Total count of disks in config is less than available
-- no duplicate named volumes
-
-=end
-
-def validate_config(config)
-  
-  total_used = 0
-  errors = ""
-  config.each { |k,v| 
-    log("checking volume config: #{k}") {level :warn}    
-    err_temp = "#{v[:raid_level]} volume #{k} should "
-    v[:disks] = Float(v[:disks]).to_i rescue v[:disks].intern
-    case v[:raid_level].intern
-      when :RAID1
-      errors << err_temp << "have more than 2 disks\n" unless v[:disks].nil? or v[:disks] > 2
-      
-      when :RAID1E
-      errors << err_temp << "have more than 2 disks\n" unless v[:disks].isblank? or  v[:disks] >2
-      errors << err_temp << "have no more than 9 disks\n" unless v[:disks] <=9
-      errors << err_temp << "have an odd number of disks\n" unless (v[:disks] % 2) ==1
-      v[:disks] = 2
-      
-      when :RAID0
-      errors << err_temp << "have at least 2 disks (#{v[:disks]})\n" unless v[:disks]==:remaining or v[:disks] >= 2
-      errors << err_temp << "have no more than 10 disks\n" unless v[:disks] <=10
-      
-      when :RAID10
-      if v[:disks] < 2
-        errors << err_temp << "have at least 2 disks\n"
-      elsif v[:disks] < 4
-        v[:raid_level] = "RAID1"
-        config[k][:raid_level] = "RAID1"
-        log("setting raid 10 downward to raid1 - not enough disks")
-      end
-      errors << err_temp << "have no more than 10 disks\n" unless v[:disks] <=10
-      
-      when :JBOD
-      
-    else
-      errors << "#{k} uses an unknwon raid level #{v[:raid_level]}"
-    end unless v[:disks] == :remaining
-    
-    disk_use = Float(v[:disks]) rescue 0
-    total_used = total_used + disk_use
-    
-  }
-  
-  total_avail = @raid.disks.length
-  errors << "too many disks specified. required: #{total_used} avail: #{total_avail}" if total_used > total_avail
-  errors  
-  
+action :set_boot do
+  config = @new_resource.config
+  nic_first = @new_resource.nic_first
+  do_set_boot(config, @controllers, nic_first) unless @failed
 end
 
-=begin
-  Check the number of disks to be used, and REDUCE it if it doesn't meet requirements
-(can't increase it !)
-=end
-def adjust_max_disk_cnt(config, s_cnt)
-  v = config
-  log_pref = "for #{config[:vol_name]} type:#{v[:raid_level]} "
-  log ("checking #{log_pref} with #{s_cnt} disks")
-  case v[:raid_level].intern
-    when :RAID1
-    raise "RAID1 - must have 2 disks" if s_cnt < 2
-    return 2
-    
-    when :RAID1E
-    raise "RAID1E must have at least 3 disks" if s_cnt < 3
-    if s_cnt % 2 ==0
-      log("#{log_pref} RAID1E must be odd - reduce by 1") 
-      s_cnt = s_cnt -1
-    end    
-    s_cnt = 9 if s_cnt > 9     
-    
-    when :RAID0
-    raise "RAID0 must have at least 2 disks" if s_cnt < 2
-    if s_cnt >=10
-      log("#{log_pref} max disk use is 10") 
-      s_cnt = 10
-    end
-    
-    when :RAID10
-    raise "RAID10 must have at least 4 disks" if s_cnt < 2
-    if s_cnt < 4
-      s_cnt = 2
-      v[:raid_level] = "RAID1"
-      log("setting raid 10 downward to raid1 - not enough disks")
-    end
-    if s_cnt >=10
-      log("#{log_pref} max disk use is 10") 
-      s_cnt = 10
-    end
-    
-    when :JBOD
-    # no restrictions
+#### Chef override functions
+#
+# Called on each action call on this resource.
+#
+# Sets @failed to help actions return faster.
+#
+def load_current_resource
+  log "load_current_resource start..............................."
+  @drivers, @controllers = enumerate_topology
+  if @controllers.nil? or 
+     @drivers.nil? or 
+     @controllers.empty? or 
+     @drivers.empty?
+    @failed = true
+  else
+    do_report(@new_resource.debug_flag)
   end
-  
-  return s_cnt
+  log "load_current_resource end............................"
 end
 
-
-###
+### Helper functions ####
+#
 # log to the problem file.
-# 
 #
 def report_problem(msg)
   problem_file = @new_resource.problem_file
@@ -401,8 +67,538 @@ def report_problem(msg)
   log_(msg)
 end
 
-
 def log_(msg)
   Chef::Log.info(msg) 
   true
 end
+
+
+def log_action(action)
+  node["crowbar_wall"] = {} unless node["crowbar_wall"]
+  node["crowbar_wall"]["raid"] = {} unless node["crowbar_wall"]["raid"]
+  node["crowbar_wall"]["raid"]["actions"] = [] unless node["crowbar_wall"]["raid"]["actions"]
+  node["crowbar_wall"]["raid"]["actions"] << action
+end
+
+#
+# Function to gather a report
+#
+# This is called from load_current_resource only on success
+#
+def do_report(debug_flag)
+  s = "\n"
+  s << "Current RAID configuration report:\n"
+
+  node["crowbar_wall"] ||= {}
+  node["crowbar_wall"]["raid"] ||= {}
+  node["crowbar_wall"]["raid"]["drivers"] = []
+  node["crowbar_wall"]["raid"]["controllers"] = {}
+
+  s << " drivers:\n"
+  @drivers.each do |d|
+    d.debug = debug_flag
+    node["crowbar_wall"]["raid"]["drivers"] << d.describe
+    s << "  #{d.describe}\n"
+  end
+
+  s << " controllers: #{@controllers.length}\n"
+  @controllers.each do |c|
+    node["crowbar_wall"]["raid"]["controllers"][c.controller_id] = c.to_hash
+    s << "  Controller #{c.controller_id}:\n"
+    s << "   disks #{c.disks.length}: #{c.disks.map {|x| x.to_s}.join(", ")}\n"
+    s << "   volumes #{c.volumes.length}: #{c.volumes.map {|x| x.to_s}.join(", ")}\n"
+  end
+  
+  log s
+
+  node.save    
+rescue Exception => e
+  log("do_report exception: #{e.message} #{e.backtrace}")
+  report_problem($!)  ## $! is the global exception variable
+end
+
+#
+# Walks the set of drivers and returns if the a set returns controllers
+#
+# Return a [ drivers, controllers ]
+#
+def enumerate_topology
+  driver_sets = [[Crowbar::RAID::WsManCli],[Crowbar::RAID::LSI_MegaCli,Crowbar::RAID::LSI_sasIrcu]]  
+  drivers = []
+  controllers = []
+
+  driver_sets.each do |set|
+    log("will try set: #{set.inspect}")
+
+    set.each do |c|
+      log("trying #{c}") {level :debug}
+      puts "Trying new driver #{c}"
+      ## try to instantiate and test the controller class, but catch errors.
+      begin
+        driver = c.new(node)
+        cntls = driver.enumerate_topology
+        puts "#{c}.enumerate_topology returned #{cntls}"
+        unless cntls.empty?
+          drivers << driver
+          controllers << cntls
+        end
+      rescue Exception => e
+        log("failed to test #{c}, error: #{e.message} trace: #{e.backtrace}")
+        puts "Exception caught in enumerate_topology in CHEF PROVIDER: #{e.message}"
+      end
+    end
+
+    break unless controllers.empty?
+  end
+  controllers = controllers.flatten
+  log("no suported RAID controller found on this system"){level :error} if controllers.empty?
+  [drivers, controllers]
+end
+
+#
+# raid info.
+#
+RAID_INFO = {
+    :RAID0  => { :min_count => 2, :max_count => 10000, :odd => false, :even => false },
+    :RAID00 => { :min_count => 4, :max_count => 10000, :odd => false, :even => true },
+    :RAID1  => { :min_count => 2, :max_count => 2,     :odd => false, :even => true },
+    :RAID10 => { :min_count => 4, :max_count => 10000, :odd => false, :even => true },
+    :RAID1E => { :min_count => 3, :max_count => 10000, :odd => true,  :even => false },
+    :RAID5  => { :min_count => 3, :max_count => 10000, :odd => false, :even => false },
+    :RAID50 => { :min_count => 6, :max_count => 10000, :odd => false, :even => true },
+    :RAID6  => { :min_count => 4, :max_count => 10000, :odd => false, :even => false },
+    :RAID60 => { :min_count => 8, :max_count => 10000, :odd => false, :even => true },
+    :JBOD   => { :min_count => 1, :max_count => 10000, :odd => false, :even => false }
+}
+
+def get_disk_count_min(rl)
+  return RAID_INFO[rl][:min_count] if RAID_INFO[rl]
+  1
+end
+
+def get_disk_count_max(rl)
+  return RAID_INFO[rl][:max_count] if RAID_INFO[rl]
+  10000
+end
+
+def should_be_even?(rl)
+  return RAID_INFO[rl][:even] if RAID_INFO[rl]
+  false
+end
+
+def should_be_odd?(rl)
+  return RAID_INFO[rl][:odd] if RAID_INFO[rl]
+  false
+end
+
+#
+# Given a config and the enumerated data, build a set of new
+# volumes independent of current volumes
+#
+# Return: [volumes, errors]
+#   volumes = list of volume structures
+#   errors = list of errors
+#
+def build_volumes(config, controllers)
+  volumes = []
+  errors = []
+
+  return [ [], [] ] unless config["volumes"]
+
+  # How many controllers are explicitly declared by volume
+  cont_names = []
+  config["volumes"].each do |k,v|
+    cont_names << v["controller"] if v["controller"]
+  end
+  cont_names.uniq!
+
+  # Process controllers to get option lists.  
+  # Given the names, find the best matches.
+  cont_options = {}
+  cont_names.each do |c_name|
+    c = config["controllers"][c_name] rescue nil
+    if c
+      cont_options[c_name] = []
+
+      controllers.each do |rc|
+        # Test for controller match (Check schema)
+
+        # Product_name test
+        if c["device"]
+          next unless c["device"].include? rc.product_name
+        end
+
+        # Filter by supported raid levels
+        if c["raid_level_filter"]
+          list = c["raid_level_filter"].map{ |x| x.to_sym }
+          new_list = rc.supported_raid_levels & list
+          next if new_list.empty?
+        end
+ 
+        cont_options[c_name] << rc
+      end
+    else
+      # No criteria, take them all
+      cont_options[c_name] = controllers.dup
+    end
+  end 
+  cont_options.each do |k,l|
+    next if l.length > 0
+    errors << "Controller #{k} has no options"
+  end
+
+  unused_controllers = controllers.dup
+  # Set up available disk arrays
+  controllers.each do |c|
+    c.avail_disks = c.disks.dup
+  end
+
+  # Sort config volumes.
+  config_vols = config["volumes"].sort { |a,b| a[1]["order"] <=> b[1]["order"] }
+
+  # Fill as appropriate.
+  config_vols.each do |item|
+    name = item[0]
+    hash = item[1]
+
+    c_set = unused_controllers
+    c_set = cont_options[hash["controller"]] if hash["controller"]
+    
+    if c_set.nil? or c_set.empty?
+      errors << "Volume #{name} doesn't have viable controller options"
+      next
+    end
+
+    rl = hash["raid_level"].to_sym
+    disk_min = get_disk_count_min(rl)
+    disk_max = get_disk_count_max(rl)
+
+    # Validate that enough requested disks work for Raid_level
+    disk_count = hash["disk_count"]
+    if disk_count and disk_count != "remaining"
+      disk_count = disk_count.to_i
+      if disk_count < disk_min
+        errors << "Volume #{name} is requesting less disks than required"
+        next
+      end
+      disk_min = disk_count
+      # Make sure we aren't over the max disk count
+      if disk_count > disk_max
+        disk_count = disk_max
+      end
+    end
+
+    my_c = nil
+    c_set.each do |c|
+      next unless c.supported_raid_levels.include? rl
+      if disk_min > c.avail_disks.length 
+        # This is the hack to downgrade a RAID10 to a RAID1
+        # for our C6100s
+        if rl == :RAID10 and c.avail_disks.length > 1
+          rl = :RAID1
+          disk_min = 2
+          disk_count = 2
+        else
+          next
+        end
+      end
+
+      # GREG: Disk size checks.
+      # GREG: other controller validation here.
+
+      my_c = c
+      break
+    end
+
+    unless my_c
+      errors << "Volume #{name} doesn't match any controller"
+      next
+    end
+
+    #
+    # If a named controller, set it and don't let others use it.
+    #
+    if hash["controller"]
+      unused_controllers.delete(my_c)
+      cont_options.each do |k,h|
+        h.delete(my_c)
+      end
+      cont_options[hash["controller"]] = [ my_c ]
+    end
+
+    #
+    # Create volume on this thing!
+    #
+    v = Crowbar::RAID::Volume.new
+    v.controller = my_c
+    v.raid_level = rl
+    v.vol_name = name
+    if hash["max_size"] 
+      v.size = hash["max_size"]
+    else
+      v.size = "MAX"
+    end
+    if hash["stripe_size"] 
+      v.stripe_size = hash["stripe_size"]
+    end
+    
+    disk_count = my_c.avail_disks.length if disk_count == "remaining"
+    if should_be_even? rl and disk_count % 2 == 1
+      disk_count = disk_count - 1
+    end
+    if should_be_odd? rl and disk_count % 2 == 0
+      disk_count = disk_count - 1
+    end
+    if disk_count > get_disk_count_max(rl)
+      disk_count = get_disk_count_max(rl)
+    end
+    if disk_count < get_disk_count_min(rl)
+      errors << "Volume #{name} can't be made because remaining disk are too few"
+      next
+    end
+
+    disk_count.times do
+      v.members << my_c.avail_disks.shift
+    end
+    
+    volumes << v
+  end
+
+  return [ [], errors ]  unless errors.empty?
+
+  #
+  # Once all volumes are constructed, build JBOD volumes for the remaining drives.
+  # This is an implicit default.
+  #
+  disks = {}
+  controllers.each { |c| disks[c] = c.disks.dup }
+  volumes.each do |v|
+    cc = v.controller
+    disks[cc] = disks[cc] - v.members
+  end
+  
+  disks.keys.each do |k|
+    next if disks[k].length == 0
+    rv = Crowbar::RAID::Volume.new
+    rv.controller = k
+    rv.raid_level = :JBOD
+    rv.members = disks[k]
+    volumes << rv
+  end
+
+  [ volumes, [] ]
+end
+
+#
+# Compare to volumes on the same controller.
+#
+def compare_volume(old, new)
+  return 0 if old.nil? and new.nil?
+  return -1 if new.nil?
+  return 1 if old.nil?
+
+  reason = "no diff"
+  begin 
+    ret = 0
+    if old.controller != new.controller
+      reason = "different controller" ;ret=1 ; break  
+    end
+    if old.members.length != new.members.length
+      reason = "different member's count #{old.members.length}/#{new.members.length}" ; ret=1 ; break 
+    end
+    if  old.raid_level != new.raid_level
+      reason = "different level" ; ret= 1 ; break 
+    end
+  
+    ostr = old.members.map { |d| "#{d.enclosure}:#{d.slot}" }.sort.join(",")
+    nstr = new.members.map { |d| "#{d.enclosure}:#{d.slot}" }.sort.join(",")
+    reason = "different members" && ret = ostr <=> nstr 
+  end while false
+  if ret != 0
+    log("volume #{old.vol_name} differ because of #{reason}")
+  else
+    log("volume #{old.vol_name} exists")
+  end
+  ret
+end
+
+def get_volume_differences(new_volumes, controllers)
+  old_volumes = controllers.map { |x| x.volumes }
+  old_volumes.flatten!
+  
+  # 
+  # Remove matching volumes
+  #
+  rm_old = []
+  rm_new = []
+  old_volumes.each do |ov|
+    new_volumes.each do |nv|
+      if compare_volume(ov, nv) == 0
+        rm_old << ov
+        rm_new << nv
+        nv.vol_id = ov.vol_id
+        log("reusing #{ov.vol_id} for #{nv.vol_name}/#{nv.vol_id}")
+      else
+        log("new volume #{nv.vol_name}/#{nv.vol_id}")
+      end
+    end
+  end
+
+  [old_volumes, rm_old, rm_new]
+end
+
+#
+# Given a set of new volumes, generate a list of changes
+# to apply to the system.
+#
+# Initial HACK: clear and recreate if difference
+# Future Hack: difference and move as need
+#
+def compute_delta(new_volumes, controllers)
+  actions = []
+  errors = []
+
+  old_volumes, rm_old, rm_new = get_volume_differences(new_volumes, controllers)
+
+  #
+  # Old volumes should be deleted!
+  #
+  # If all old volumes are being removed, clear config
+  #
+  if rm_old.length == 0
+    ccs = old_volumes.map { |v| v.controller }
+    ccs.uniq.each do |c|
+      actions << { :action => :clear_config, :controller => c }
+    end
+  else
+    old_volumes.each do |v|
+      next if rm_old.include? v
+      actions << { :action => :delete_vd, :controller => v.controller, :volume => v }
+    end
+  end
+
+  #
+  # New volumes should be created!
+  # 
+  touched = []
+  new_volumes.each do |v|
+    next if rm_new.include? v
+    vol_data = {
+      :name => v.vol_name,
+      :type => v.raid_level,
+      :size => v.size,
+      :disks => v.members
+    }
+    vol_data[:stripe_size] = v.stripe_size if v.stripe_size
+    actions << { :action => :clear_foreign_config, :controller => v.controller } unless touched.include? v.controller.controller_id
+    actions << { :action => :create_vd, :controller => v.controller, :volume => vol_data }
+    touched << v.controller.controller_id
+  end
+
+  [ actions, errors ]
+end
+
+#
+# Create, delete, clear, setboot actions
+#
+def do_actions(actions)
+  touched_controllers  = []
+  jids = []
+  wsman_driver = nil
+  actions.each do |action|
+    controller = action[:controller]
+    driver     = controller.driver
+
+    touched_controllers << controller unless touched_controllers.include? controller
+
+    case action[:action]
+      when :create_vd
+        log_action("create_vd: #{controller.controller_id} #{action[:volume][:type]} #{action[:volume][:disks].length}")
+        driver.create_vd(controller, action[:volume])
+      when :delete_vd
+        log_action("delete_vd: #{controller.controller_id} #{action[:volume].vol_id}")
+        driver.delete_vd(action[:volume])
+      when :clear_config
+        log_action("clear_config: #{controller.controller_id} Clear all config")
+        driver.clear_controller_config(controller, :all)
+      when :clear_foreign_config
+        log_action("clear_config: #{controller.controller_id} Clear foreign config")
+        driver.clear_controller_config(controller, :foreign)
+    end
+  end
+
+  node.save # Save the log actions
+
+  touched_controllers.each do |controller|
+    driver = controller.driver
+    if driver.respond_to?(:create_raid_config_job)
+      wsman_driver = driver
+      returnVal,job_id = driver.create_raid_config_job(controller.controller_id)
+      if(returnVal == 4096)
+        jids << job_id
+      end
+    end
+  end
+
+  ## Only way to get job id is to use the wsman driver..setup the job queue now
+  if (jids and jids.length > 0)
+    wsman_driver.run_multiple_raid_jobs(jids) 
+  end
+
+  []
+end
+
+
+def apply_config(config, controllers)
+  volumes, errors = build_volumes(config, controllers)
+  if errors.length > 0
+    log("Config Errors:#{errors}")
+    throw "Config error #{errors}"
+  end
+
+  actions, errors  = compute_delta(volumes, controllers)
+  if errors.length > 0
+    log("Delta Compute Errors:#{errors}")
+    throw "Delta Compute error #{errors}"
+  end
+
+  # May reboot if needed
+  errors = do_actions(actions)
+  node.save # Just in case status info is updated.
+  if errors.length > 0
+    log("Action Errors:#{errors}")
+    throw "Action error #{errors}"
+  end
+rescue Exception => e
+  log(e.backtrace)
+  report_problem($!)  ## $! is the global exception variable
+end
+
+#
+# Setup up the boot operation.
+#
+def do_set_boot(config, controllers, nic_first)
+  # Get new volumes
+  volumes, errors = build_volumes(config, controllers)
+  if errors.length > 0
+    log("Config Errors:#{errors}")
+    throw "Config error #{errors}"
+  end
+  get_volume_differences(volumes, controllers)
+
+  #
+  # Mark the selected volume bootable
+  #
+  boot_vol = volumes.first
+  volumes.each do |v|
+    next unless v.bootable
+    boot_vol = v
+    break
+  end
+  controller = boot_vol.controller
+  driver = controller.driver
+  driver.set_boot(controller, boot_vol, nic_first)
+rescue 
+  report_problem($!)  ## $! is the global exception variable
+end
+
