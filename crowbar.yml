@@ -18,7 +18,7 @@ barclamp:
     - dell_branding
 
 crowbar:
-  layout: 2
+  layout: 1
   order: 18
   run_order: 18
   chef_order: 18
