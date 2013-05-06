@@ -23,4 +23,19 @@ crowbar:
   run_order: 18
   chef_order: 18
 
+locale_additions:
+  en:
+    raid:
+      SingleRaid10: Single Raid 10
+      JBODOnly: JBOD Only
+    barclamp:
+      raid:
+        edit_deployment: 
+          deployment: Deployment        
+        edit_attributes:
+          attributes: Attributes
+          enable: Enable RAID
+          debug: Enable Barclamp Debug
+
+
 build_cmd: build.sh
