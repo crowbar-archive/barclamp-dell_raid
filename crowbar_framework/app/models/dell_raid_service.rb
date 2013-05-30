@@ -6,7 +6,7 @@
 class DellRaidService < ServiceObject
 
   def initialize(thelogger)
-    @bc_name = "raid"
+    @bc_name = "dell_raid"
     @logger = thelogger
   end
   
