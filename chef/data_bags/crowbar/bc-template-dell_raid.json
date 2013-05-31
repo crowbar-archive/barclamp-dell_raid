@@ -12,14 +12,14 @@
       "crowbar-revision": 0,
       "elements": {},
       "element_states": {
-        "raid-setboot-disk-first": [ "completing" ],
+        "raid-setboot-disk-first": [ "installed" ],
         "raid-setboot-nic-first": [ "hardware-installing" ],
         "raid-configure": [ "hardware-installing" ],
-        "raid-discover": [ "discovering" ]
+        "discover-raid": [ "discovering" ]
       },
       "element_run_list_order": {
         "raid-setboot-nic-first": 16,
-        "raid-discover": 18,
+        "discover-raid": 18,
         "raid-configure": 18,
         "raid-setboot-disk-first": 19
       },
