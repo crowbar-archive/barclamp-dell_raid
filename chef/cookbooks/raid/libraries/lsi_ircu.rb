@@ -206,17 +206,23 @@ Issue the command to create a RAID volue:
   def set_boot(controller, volume, nic_first = true)
     ## set the boot volume or drive.
     ## if we have a volume, otherwise, first drive.
-    if volume and volume.raid_level != :JBOD
-      bootVol = volume.vol_id          
-      log("Will use boot volume:#{bootVol}")
-      run_tool(0, nil, [controller.controller_id, "bootir", "#{bootVol}"]) if (bootVol)
-    elsif !controller.disks.empty? and controller.raid_capable
-      d = controller.disks[0]
-      d = volume.members[0] if volume and !volume.members.empty?
-      boot = "#{d.enclosure}:#{d.slot}"
-      log("Will use boot disk: #{boot}")                    
-      run_tool(0, nil, [controller.controller_id, "bootencl", boot])
-    else
+    begin
+      if volume and volume.raid_level != :JBOD
+        bootVol = volume.vol_id          
+        log("Will use boot volume:#{bootVol}")
+        puts "Will use boot volume:#{bootVol}"
+        run_tool(0, nil, [controller.controller_id, "bootir", "#{bootVol}"]) if (bootVol)
+      elsif !controller.disks.empty? and controller.raid_capable
+        d = controller.disks[0]
+        d = volume.members[0] if volume and !volume.members.empty?
+        boot = "#{d.enclosure}:#{d.slot}" if ((d.enclosure) and (d.slot))
+        log("Will use boot disk: #{boot}")                    
+        puts "Will use boot disk: #{boot}"                    
+        run_tool(0, nil, [controller.controller_id, "bootencl", boot]) if (boot)
+      else
+      end
+    rescue Exception => e
+      puts "Caught exception in set_boot..#{e.message}"
     end
   end
 

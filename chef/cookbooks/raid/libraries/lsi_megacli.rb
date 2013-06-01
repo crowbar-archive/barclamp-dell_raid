@@ -172,21 +172,38 @@ class LSI_MegaCli < Crowbar::RAID::Driver
   def set_boot(controller, volume, nic_first = true)
     #### set a bood drive. 
     ## - If there is any kind of volume info, pick first volume
-    if volume and volume.raid_level != :JBOD
-      bootVol = volume.vol_id          
-      log("Will use boot volume:#{bootVol}")                    
-      run_tool(0, nil, ["-adpBootDrive", "-set", "-l#{bootVol}", "-a#{controller.controller_id}"]) if (bootVol)
-    elsif volume and volume.raid_level == :JBOD
-      boot = volume.members[0].vol_id
-      log("Will use boot jbod fake vol :#{boot}")                    
-      run_tool(0, nil, ["-adpBootDrive", "-set", "-l#{boot}", "-a#{controller.controller_id}"])
-    elsif !controller.disks.empty?
-      d = controller.disks[0]
-      boot = "#{d.enclosure}:#{d.slot}"
-      log("Will use boot disk: #{boot}")                    
-      run_tool(0, nil, ["-adpBootDrive", "-set", "-physdrv[#{boot}]", "-a#{controller.controller_id}"])
-    else
-      log("not changing boot drive.. not enough info")
+    begin
+      if volume and volume.raid_level != :JBOD
+        bootVol = volume.vol_id          
+        puts "Will use boot volume:#{bootVol}"                    
+        run_tool(0, nil, ["-adpBootDrive", "-set", "-l#{bootVol}", "-a#{controller.controller_id}"]) if (bootVol)
+      elsif volume and volume.raid_level == :JBOD
+        ## JBOD is made up of RAID0 members...volume IDs don't appear sorted
+        ## Adding code to sort and pick lowest volume id as bootable drive
+        sorted_ids = []
+        volume_ids = [] 
+        bootVol    = ""
+        if ((volume.members) and (!volume.members.empty?))
+          bootVol = volume.members[0].vol_id if (volume.members[0].vol_id)
+          puts "Set boot volume id to #{bootVol}"
+          volume.members.each do |vol|
+            volume_ids << vol.vol_id
+          end
+        end
+        sorted_ids = volume_ids.sort! if ((volume_ids) and (!volume_ids.empty?))
+        bootVol = sorted_ids[0] if ((sorted_ids) and (!sorted_ids.empty?)) 
+        puts "Will use boot jbod fake vol id :#{bootVol}"                    
+        run_tool(0, nil, ["-adpBootDrive", "-set", "-l#{boot}", "-a#{controller.controller_id}"]) if (bootVol.length > 0)
+      elsif !controller.disks.empty?
+        d = controller.disks[0]
+        boot = "#{d.enclosure}:#{d.slot}" if ((d.enclosure) and (d.slot))
+        puts "Will use boot disk: #{boot}"
+        run_tool(0, nil, ["-adpBootDrive", "-set", "-physdrv[#{boot}]", "-a#{controller.controller_id}"]) if (boot)
+      else
+        log("not changing boot drive.. not enough info")
+      end
+    rescue Exception => e
+      puts "Exception caught in set_boot...#{e.message}"
     end
   end
 
