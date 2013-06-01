@@ -12,8 +12,8 @@ About this raid
 This is Dell proprietary code and requires a license.
 To properly utilize this barclamp, you will need to download the
 following files:
-http://www.lsi.com/downloads/Public/Host%20Bus%20Adapters/Host%20Bus%20Adapters%20Common%20Files/SAS_SATA_6G_P12/SAS2IRCU_P12.zip
-http://www.lsi.com/downloads/Public/MegaRAID%20Common%20Files/8.05.06_MegaCLI.zip
+http://www.lsi.com/downloads/Public/Host%20Bus%20Adapters/Host%20Bus%20Adapters%20Common%20Files/SAS_SATA_6G_P16/SAS2IRCU_P16.zip
+http://www.lsi.com/downloads/Public/MegaRAID%20Common%20Files/8.07.07_MegaCLI.zip
 
 Both of these files should be downloaded into:
 <your build cache>/barclamps/dell_raid/files/tools
