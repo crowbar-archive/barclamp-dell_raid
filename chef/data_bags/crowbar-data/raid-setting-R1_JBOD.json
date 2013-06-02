@@ -1,7 +1,9 @@
 {
   "id" : "raid-R1-JBOD",
   "config" : { 
-  "0" : {"raid_level": "RAID1" , "disks": "2", "order": 1 }  ,
-  "default":   {"raid_level": "JBOD", "disks": "remaining", "order" : 3 }
+    "volumes": {
+      "0" : { "raid_level": "RAID1" , "disk_count": "2", "order": 1 },
+      "default": { "raid_level": "JBOD", "disk_count": "remaining", "order": 3 }
+    }
   }
 }

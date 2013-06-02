@@ -1,6 +1,8 @@
 {
   "id" : "raid-SingleRaid10",
   "config" : { 
-  "0" : {"raid_level": "RAID10" , "disks": "remaining", "order": 1 }  
+    "volumes": {
+      "0" : { "raid_level": "RAID10" , "disk_count": "remaining", "order": 1 }
+    } 
   }
 }
