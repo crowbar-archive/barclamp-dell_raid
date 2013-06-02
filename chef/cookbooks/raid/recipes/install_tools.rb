@@ -18,14 +18,29 @@
 include_recipe "utils"
 
 return unless ["centos","redhat"].member?(node[:platform]) && !@@is_admin
-provisioner_server = (node[:crowbar_wall][:provisioner_server] rescue nil)
+
+provisioners = search(:node, "roles:provisioner-server")
+provisioner = provisioners[0] if provisioners
+web_port = provisioner["provisioner"]["web_port"]
+begin
+  address = Chef::Recipe::Barclamp::Inventory.get_network_by_type(provisioner, "bmc_vlan").address
+  if (!address)
+    address = Chef::Recipe::Barclamp::Inventory.get_network_by_type(provisioner, "admin").address
+  end
+rescue
+  address = Chef::Recipe::Barclamp::Inventory.get_network_by_type(provisioner, "admin").address
+end
+provisioner_server = "#{address}:#{web_port}"
+log("Provisioner server info is #{provisioner_server}")
+
 return unless provisioner_server
-sas2ircu="SAS2IRCU_P16.zip"
-megacli="8.07.07_MegaCLI.zip"
+
+sas2ircu="sas2ircu"
+megacli="MegaCli-8.07.07-1.noarch.rpm"
 
 [sas2ircu,megacli].each do |f|
   remote_file "/tmp/#{f}" do
-    source "#{provisioner_server}/files/dell_raid/tools/#{f}"
+    source "http://#{provisioner_server}/files/dell_raid/tools/#{f}"
     action :create_if_missing
   end
 end
@@ -34,7 +49,8 @@ bash "install sas2ircu" do
   code <<EOC
 cd /usr/sbin
 [[ -x /usr/sbin/sas2ircu ]] || \
-unzip -j "/tmp/#{sas2ircu}" "SAS2IRCU_P16/sas2ircu_linux_x86_rel/sas2ircu"
+mkdir -p "SAS2IRCU_P16/sas2ircu_linux_x86_rel"
+cp "/tmp/#{sas2ircu}" "SAS2IRCU_P16/sas2ircu_linux_x86_rel/"
 EOC
 end
 
@@ -42,9 +58,6 @@ bash "install megacli" do
   code <<EOC
 cd /tmp
 [[ -x /opt/MegaRAID/MegaCli/MegaCli64 ]] && exit 0
-for pkg in "MegaCli_Linux/MegaCli-8.07.07-1.noarch.rpm"; do
-    unzip -j "#{megacli}" "$pkg"
-  rpm -Uvh "${pkg##*/}"
-done
+rpm -Uvh #{megacli}
 EOC
 end
