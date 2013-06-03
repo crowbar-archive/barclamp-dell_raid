@@ -46,10 +46,9 @@ end
 
 bash "install sas2ircu" do
   code <<EOC
-cd /usr/sbin
-[[ -x /usr/sbin/sas2ircu ]] || \
-mkdir -p "SAS2IRCU_P16/sas2ircu_linux_x86_rel"
-cp "/tmp/#{sas2ircu}" "SAS2IRCU_P16/sas2ircu_linux_x86_rel/"
+cd /tmp
+mv sas2ircu "/usr/sbin/"
+chmod 755 "/usr/sbin/sas2ircu"
 EOC
 end
 
