@@ -1,6 +1,6 @@
 Welcome to a Barclamp for the Crowbar Framework project
 =======================================================
-_Copyright 2011, Dell, Inc._
+_Copyright 2013, Dell, Inc._
 
 The Crowbar Framework (https://github.com/dellcloudedge/crowbar) was developed by the Dell CloudEdge Solutions Team (http://dell.com/openstack) as a OpenStack installer (http://OpenStack.org) but has evolved as a much broader function tool. 
 A Barclamp is a module component that implements functionality for Crowbar.  Core barclamps operate the essential functions of the Crowbar deployment mechanics while other barclamps extend the system for specific applications.
