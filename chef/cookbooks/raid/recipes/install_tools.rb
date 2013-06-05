@@ -21,14 +21,7 @@ return unless ["centos","redhat"].member?(node[:platform]) && !@@is_admin
 provisioners = search(:node, "roles:provisioner-server")
 provisioner = provisioners[0] if provisioners
 web_port = provisioner["provisioner"]["web_port"]
-begin
-  address = Chef::Recipe::Barclamp::Inventory.get_network_by_type(provisioner, "bmc_vlan").address
-  if (!address)
-    address = Chef::Recipe::Barclamp::Inventory.get_network_by_type(provisioner, "admin").address
-  end
-rescue
-  address = Chef::Recipe::Barclamp::Inventory.get_network_by_type(provisioner, "admin").address
-end
+address = Chef::Recipe::Barclamp::Inventory.get_network_by_type(provisioner, "admin").address
 provisioner_server = "#{address}:#{web_port}"
 log("Provisioner server info is #{provisioner_server}")
 
