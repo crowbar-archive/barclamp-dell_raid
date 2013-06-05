@@ -35,6 +35,7 @@ bash "install sas2ircu" do
 cd /usr/sbin
 [[ -x /usr/sbin/sas2ircu ]] || \
 unzip -j "/tmp/#{sas2ircu}" "SAS2IRCU_P16/sas2ircu_linux_x86_rel/sas2ircu"
+chmod 755 sas2ircu
 EOC
 end
 
