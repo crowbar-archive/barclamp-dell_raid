@@ -27,8 +27,8 @@ log("Provisioner server info is #{provisioner_server}")
 
 return unless provisioner_server
 
-sas2ircu="sas2ircu"
-megacli="MegaCli-8.07.07-1.noarch.rpm"
+sas2ircu="SAS2IRCU_P16.zip"
+megacli="8.07.07_MegaCLI.zip"
 
 [sas2ircu,megacli].each do |f|
   remote_file "/tmp/#{f}" do
@@ -39,16 +39,19 @@ end
 
 bash "install sas2ircu" do
   code <<EOC
-cd /tmp
-mv sas2ircu "/usr/sbin/"
-chmod 755 "/usr/sbin/sas2ircu"
+cd /usr/sbin
+[[ -x /usr/sbin/sas2ircu ]] && exit 0
+unzip -j -o "/tmp/#{sas2ircu}" "SAS2IRCU_P16/sas2ircu_linux_x86_rel/sas2ircu"
 EOC
 end
 
 bash "install megacli" do
   code <<EOC
-cd /tmp
+cd /tmp 
 [[ -x /opt/MegaRAID/MegaCli/MegaCli64 ]] && exit 0
-rpm -Uvh #{megacli}
+for pkg in "linux/MegaCli-8.07.07-1.noarch.rpm"; do
+    unzip -j -o "#{megacli}" "$pkg"
+  rpm -Uvh "${pkg##*/}"
+done
 EOC
 end
