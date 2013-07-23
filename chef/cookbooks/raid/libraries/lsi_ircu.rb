@@ -121,7 +121,7 @@ Issue the command to create a RAID volue:
 =end  
   def create_vd(controller, volume)
     ## build up the command...     
-    max_size       = (Crowbar::RAID::TERA * 2 - Crowbar::RAID::MEGA)
+    max_size       = (Crowbar::RAID::TERA * 2 - Crowbar::RAID::MEGA) / Crowbar::RAID::MEGA
     size           = nil
     curr_boot_mode = nil
     pend_boot_mode = nil
