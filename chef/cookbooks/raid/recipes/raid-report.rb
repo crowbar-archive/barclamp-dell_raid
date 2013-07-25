@@ -22,7 +22,7 @@
 
 include_recipe "utils"
 
-raid_enable = node[:raid][:enable] & @@centos
+raid_enable = node[:dell_raid][:enable] & @@centos
 log("BEGIN raid-report enabled=#{raid_enable}") {level :info} 
 
 config_name = node[:crowbar][:hardware][:raid_set] rescue config_name = "JBODOnly"
