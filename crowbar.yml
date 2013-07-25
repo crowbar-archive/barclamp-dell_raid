@@ -31,7 +31,7 @@ locale_additions:
       SingleRaid10: Single Raid 10
       JBODOnly: JBOD Only
     barclamp:
-      raid:
+      dell_raid:
         edit_deployment:
           deployment: Deployment
         edit_attributes:
