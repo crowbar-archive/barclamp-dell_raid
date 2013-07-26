@@ -3,7 +3,7 @@
     "id": { "type": "str", "required": true, "pattern": "/^bc-dell_raid-|^bc-template-dell_raid$/" },
     "description": { "type": "str", "required": true },
     "attributes": { "type": "map", "required": true, "mapping": {
-        "raid": { "type": "map", "required": true, "mapping": {
+        "dell_raid": { "type": "map", "required": true, "mapping": {
             "enable":  { "type": "bool", "required": true},
             "debug":  { "type": "bool", "required": true}
           }

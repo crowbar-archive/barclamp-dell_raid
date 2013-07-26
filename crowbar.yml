@@ -16,7 +16,6 @@ barclamp:
   name: dell_raid
   display: RAID
   version: 0
-  user_managed: false
   member:
     - dell_branding
 
@@ -32,7 +31,7 @@ locale_additions:
       SingleRaid10: Single Raid 10
       JBODOnly: JBOD Only
     barclamp:
-      raid:
+      dell_raid:
         edit_deployment:
           deployment: Deployment
         edit_attributes:
