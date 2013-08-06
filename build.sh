@@ -26,7 +26,7 @@ bc_needs_build() {
         if [ ! -f $BC_CACHE/files/dell_raid/tools/$f ] ; then # check if the file is there
             if [ -f $HOME/$f ]; then                          # if not, check in $HOME
                 mkdir -p $BC_CACHE/files/dell_raid/tools
-                cp $HOME/$f $BC_CACHE/files/dell_raid/tools/$f  #grab it
+                cp $HOME/$f $BC_CACHE/files/dell_raid/tools/  #grab it
 	    else
                 rc=0 # fail if it isn't there
             fi
