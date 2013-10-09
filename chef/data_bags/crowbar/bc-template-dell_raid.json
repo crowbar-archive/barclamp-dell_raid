@@ -2,7 +2,7 @@
   "id": "bc-template-dell_raid",
   "description": "The default proposal for the raid barclamp",
   "attributes": {
-    "raid": {
+    "dell_raid": {
 	  "enable": true,
 	  "debug": false
 	 }
