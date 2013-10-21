@@ -546,7 +546,7 @@ class Crowbar
         retValue = true
         puts "Rebooting system to run RAID configuration jobs"
         %x[reboot && sleep 120]
-        retVal
+        retValue
 
         ## RKR: Need to scrub...throws errors for scheduling job
         ## if reboot job is used in the queue...
