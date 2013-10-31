@@ -654,6 +654,34 @@ class Crowbar
         end 
 =end      
 
+      def evaluate_array_size(disk_size_arr, raid_level)
+        ret_val       = 0
+        max_vol_size  = (Crowbar::RAID::TERA * 2 - Crowbar::RAID::MEGA) 
+        case raid_level
+          when :RAID0
+          ## size of volume is numDisks * size of lowest disk
+          ret_val = disk_size_arr[0] * disk_size_arr.length
+          puts "RKR: size of RAID volume is #{ret_val}"
+
+          when :RAID1
+          ## size of volume is just size of the lowest disk
+          ret_val = disk_size_arr[0] 
+          puts "RKR: size of RAID volume is #{ret_val}"
+
+          when :RAID10
+          ## size of volume is (numDisks / 2) * size of lowest disk
+          ret_val = (disk_size_arr.length / 2) * disk_size_arr[0]
+          puts "RKR: size of RAID volume is #{ret_val}"
+
+          when :JBOD
+          #pseudo raid0 level
+          ret_val = disk_size_arr[0]
+          puts "RKR: size of RAID volume is #{ret_val}"
+        end 
+        ret_val = max_vol_size if (ret_val > max_vol_size)
+        puts "RKR: returning size of RAID volume to be #{ret_val}"
+        return ret_val
+      end
 
       def create_vd(cntrlr,volume_description)
         log("create_vd, raid_level: #{volume_description[:type]}")
@@ -666,6 +694,9 @@ class Crowbar
         name     = volume_description[:name] if volume_description[:name]
         max_size = volume_description[:size] if volume_description[:size] != "MAX"
         stripe_size = volume_description[:stripe_size]
+        max_vol_size       = (Crowbar::RAID::TERA * 2 - Crowbar::RAID::MEGA) 
+        disk_size_arr      = []
+
        
         spanLength = disks.length 
         spanDepth = disks.length
@@ -676,6 +707,22 @@ class Crowbar
 
         begin
           raid_level = volume_description[:type]
+          ## Limit VD size on platforms like R720 to less than 2 TB
+          current_mode, pending_mode = @wsman.get_current_and_pending_bootmode()
+          puts "DBG: Curr boot mode = #{current_mode}. Pending boot mode = #{pending_mode}"
+          ## BIOS barclamp is done by the time RAID VDs are created ...
+          if (current_mode and !current_mode.is_a?(Hash) and current_mode == "Bios")
+            if (max_size and max_size > max_vol_size)
+              max_size = max_vol_size
+            else
+              disks.each do |disk|
+                disk_size_arr << disk.size 
+              end
+              disk_size_arr.sort!
+              max_size = evaluate_array_size(disk_size_arr, raid_level)
+            end
+          end
+
           case raid_level
             when :RAID0
             create_volume_input_file(inputFile, name, disks, RAID0_VAL, 1, disks.length, max_size, stripe_size)
