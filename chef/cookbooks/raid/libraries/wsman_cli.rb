@@ -661,25 +661,21 @@ class Crowbar
           when :RAID0
           ## size of volume is numDisks * size of lowest disk
           ret_val = disk_size_arr[0] * disk_size_arr.length
-          puts "RKR: size of RAID volume is #{ret_val}"
 
           when :RAID1
           ## size of volume is just size of the lowest disk
           ret_val = disk_size_arr[0] 
-          puts "RKR: size of RAID volume is #{ret_val}"
 
           when :RAID10
           ## size of volume is (numDisks / 2) * size of lowest disk
           ret_val = (disk_size_arr.length / 2) * disk_size_arr[0]
-          puts "RKR: size of RAID volume is #{ret_val}"
 
           when :JBOD
           #pseudo raid0 level
           ret_val = disk_size_arr[0]
-          puts "RKR: size of RAID volume is #{ret_val}"
         end 
         ret_val = max_vol_size if (ret_val > max_vol_size)
-        puts "RKR: returning size of RAID volume to be #{ret_val}"
+        puts "DBG: returning size of RAID volume to be #{ret_val}"
         return ret_val
       end
 
