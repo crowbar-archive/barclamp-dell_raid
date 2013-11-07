@@ -16,7 +16,6 @@ barclamp:
   name: dell_raid
   display: RAID
   version: 0
-  user_managed: false
   member:
     - dell_branding
 
