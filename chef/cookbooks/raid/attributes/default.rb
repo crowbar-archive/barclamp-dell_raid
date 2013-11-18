@@ -13,8 +13,8 @@
 # limitations under the License.
 #
 
-default[:raid][:debug]=true
-default[:raid][:enable]=true
+default[:dell_raid][:debug]=true
+default[:dell_raid][:enable]=true
 
 default[:crowbar]={}
 default[:crowbar][:hardware]={}
