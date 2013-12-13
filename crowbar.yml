@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 barclamp:
   name: dell_raid
   display: RAID
@@ -25,17 +26,5 @@ crowbar:
   order: 18
   run_order: 18
   chef_order: 18
-
-locale_additions:
-  en:
-    raid:
-      SingleRaid10: Single Raid 10
-      JBODOnly: JBOD Only
-    barclamp:
-      dell_raid:
-        edit_attributes:
-          enable: Enable RAID
-          debug: Enable Barclamp Debug
-
 
 build_cmd: build.sh

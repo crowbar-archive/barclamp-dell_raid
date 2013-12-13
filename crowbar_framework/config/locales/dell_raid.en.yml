@@ -1,0 +1,9 @@
+en:
+  raid:
+    SingleRaid10: Single Raid 10
+    JBODOnly: JBOD Only
+  barclamp:
+    dell_raid:
+      edit_attributes:
+        enable: Enable RAID
+        debug: Enable Barclamp Debug
