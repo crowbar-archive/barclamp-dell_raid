@@ -1,10 +1,11 @@
-# Copyright (c) 2013 Dell Inc.
+# Copyright 2011-2013, Dell
+# Copyright 2013, SUSE LINUX Products GmbH
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#  http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,30 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-barclamp:
-  name: dell_raid
-  display: RAID
-  version: 0
-  member:
-    - dell_branding
-    - crowbar
+# Author: Dell Crowbar Team
+# Author: SUSE LINUX Products GmbH
+#
 
-crowbar:
-  layout: 1
-  order: 18
-  run_order: 18
-  chef_order: 18
-
-locale_additions:
-  en:
-    raid:
-      SingleRaid10: Single Raid 10
-      JBODOnly: JBOD Only
-    barclamp:
-      dell_raid:
-        edit_attributes:
-          enable: Enable RAID
-          debug: Enable Barclamp Debug
-
-
-build_cmd: build.sh
+module DellRaidBarclampHelper
+  def dell_raid_role_contraints
+    {
+      "raid-configure" => {
+        "unique" => false,
+        "count" => -1
+      }
+    }
+  end
+end
