@@ -19,10 +19,6 @@ en:
     JBODOnly: JBOD Only
   barclamp:
     raid:
-      edit_deployment: 
-        deployment: Deployment        
       edit_attributes:
-        attributes: Attributes
         enable: Enable RAID
         debug: Enable Barclamp Debug
-        
