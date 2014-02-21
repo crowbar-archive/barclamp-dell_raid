@@ -920,71 +920,24 @@ class Crowbar
       ## we should boot off HDD and not serve up a file during PXE boot  ##                        
       def set_boot(controller, volume, nic_first = true)
         log("Setting boot sources...set_boot recipe")
-        current_mode = nil
-        pending_mode = nil
         return_val   = RETURN_VAL_NO_ACTION
-        boot_sources = []
-        redo_sources = []
-        enable_srcs  = []
         need_cfg_job = false
-        boot_mode    = "BIOS"
-        cmd          = "#{INVOKE_CMD} -a #{CHANGE_BOOT_ORDER_CMD}"
-        url          = nil
-        inputFile    = nil
         bios_fqdd    = "BIOS.Setup.1-1"
 
         begin
-          current_mode, pending_mode = @wsman.get_current_and_pending_bootmode()
-          puts "DBG: Curr boot mode = #{current_mode}. Pending boot mode = #{pending_mode}"
-          if (pending_mode and !pending_mode.is_a?(Hash))
-            if (pending_mode == "Uefi")
-              boot_sources = @wsman.get_uefi_boot_source_settings()
-              boot_mode    = "UEFI"
-              url       = "#{INVOKE_BOOT_CONFIG_URI}UEFI"
-              inputFile = "/tmp/#{CHANGE_BOOT_ORDER_CMD}_UEFI.xml"
-            else
-              boot_sources = @wsman.get_bios_boot_source_settings()
-              url       = "#{INVOKE_BOOT_CONFIG_URI}IPL"
-              inputFile = "/tmp/#{CHANGE_BOOT_ORDER_CMD}_IPL.xml"
-            end
-            if (boot_sources and boot_sources.length > 0)
-              redo_sources, enable_srcs = @wsman.set_boot_sources(boot_mode, boot_sources, true)
-              if (enable_srcs and enable_srcs.length > 0)
-                return_val = @wsman.enable_boot_sources(enable_srcs)
-                puts "DBG: Return value from enable_boot_sources is #{return_val}"
-                if (return_val == RETURN_VAL_OK)
-                  need_cfg_job = true
-                end
-              else
-                puts "DBG:No boot sources are disabled..."
-              end
-              if (redo_sources and redo_sources.length > 0 and !redo_sources.eql?(boot_sources))
-                @wsman.writeBootSourceFile(inputFile, redo_sources)
-                output = @wsman.command(cmd,url , "-J #{inputFile}")
-                if (output)
-                  return_val   = @xml.returnValue(output,CHANGE_BOOT_ORDER_CMD)
-                  if (return_val == RETURN_VAL_OK)
-                    need_cfg_job = true
-                  end
-                else
-                  puts "ChangeBootOrderByInstanceID returned no data...Error"
-                  return_val = RETURN_VAL_FAIL
-                end
-              else
-                puts "Unable to reorder boot sources or reordered sources = original sources"
-              end
-              if (need_cfg_job)
-                bios_svc_uri = @wsman.find_instance_uri(BIOS_SVC_CLASS)
-                @wsman.create_targeted_config_job(bios_svc_uri, bios_fqdd)
-                return_val = RETURN_VAL_OK
-              else
-                puts "DBG: No targeted config job created...CfgJob boolean is false"
-              end
-            else
-              puts "No boot sources returned...Exiting"
-            end
+          retStatus , need_cfg_job = @wsman.check_and_handle_boot_sources()
+          if (need_cfg_job)
+            bios_svc_uri = @wsman.find_instance_uri(BIOS_SVC_CLASS)
+            @wsman.create_targeted_config_job(bios_svc_uri, bios_fqdd)
+            return_val = RETURN_VAL_OK
           else
-            puts "No manipulation of boot sources required for current boot mode"
+            puts "DBG: No targeted config job created...CfgJob boolean is false"
+          end
+          if (!retStatus)
+            ## Either enabling boot sources or re-ordering them failed
+            ## should not be an issue because worst case it's still going
+            ## to directly fall to the HDD and not pxe boot and fail
+            puts "DBG: Issue re-ordering NICs...not deleting controller config"
           end
         rescue Exception => e
           log("Failed setting boot, exception: #{e.message}", :ERROR)
