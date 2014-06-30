@@ -10,6 +10,7 @@
   "deployment": {
     "dell_raid": {
       "crowbar-revision": 0,
+      "crowbar-applied": false,
       "elements": {},
       "element_states": {
         "raid-setboot-disk-first": [ "installed" ],

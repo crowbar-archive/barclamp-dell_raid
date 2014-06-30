@@ -26,5 +26,6 @@ crowbar:
   order: 18
   run_order: 18
   chef_order: 18
+  proposal_schema_version: 3
 
 build_cmd: build.sh
